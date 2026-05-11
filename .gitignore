@@ -1,0 +1,17 @@
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+Paper_ljh/
+*.sqlite3
+*.db
+reports/
+rag_pipeline/data/raw_papers/
+rag_pipeline/data/parsed_cache/
+rag_pipeline/data/paper_info.sqlite3
+memory/

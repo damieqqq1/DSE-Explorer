@@ -1,0 +1,11 @@
+langchain
+langgraph
+langchain-openai
+qdrant-client
+mcp
+fastmcp
+python-dotenv
+tavily-python
+google-search-results
+pypdf
+requests
