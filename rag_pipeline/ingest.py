@@ -196,7 +196,7 @@ def ensure_collection(client: QdrantClient, settings: AppSettings) -> None:
             vectors_config=VectorParams(size=settings.qdrant.vector_size, distance=distance),
         )
 
-    for field_name in ("project", "relative_path", "category"):
+    for field_name in ("project", "relative_path", "category", "file_name"):
         try:
             client.create_payload_index(
                 collection_name=collection,

@@ -77,10 +77,9 @@ design_experiment_template | problem_description (str), num_design_variables (in
 }
 
 ## Rules
-- researcher mode: use search_dse_papers as primary tool, 2-4 retrieval steps.
-- developer mode: extract exact numbers and data from the user's request into tool_args.
-  For execute_python_code, write the full Python script in the `code` field of tool_args.
-  For compute_dse_metrics, extract points, reference_point, true_pareto_front from the user's message.
+- Tool selection: check System Status before choosing. If generate_dse_method_matrix has data, always prefer it over search_dse_papers for comparisons, "compare X vs Y", "list all methods that...", and benchmark overviews. Use search_dse_papers for definitions, concepts, and single-paper details. Use summarize_paper or ask_paper when the user asks about a specific paper by name.
+- researcher mode: 2-4 retrieval steps. Do NOT use download_paper_pdf unless the user explicitly asks to download. For comparisons, always try generate_dse_method_matrix first.
+- developer mode: extract exact numbers and data from the user's request into tool_args. For execute_python_code, write the full Python script in the `code` field of tool_args. For compute_dse_metrics, extract points, reference_point, true_pareto_front from the user's message.
 - DSE = "design space exploration", NOT data science engineering.
 - Preserve exact method names and acronyms (GRL-DSE, BOOM-Explorer, NSGA-II).
 - Use English tool names and field names.
@@ -138,12 +137,67 @@ Rules:
 """
 
 
+def _get_system_status() -> str:
+    """Build a one-shot snapshot of data availability to guide tool selection."""
+    lines: list[str] = []
+    try:
+        import sqlite3
+        from rag_pipeline.paper_info import PAPER_INFO_DB_PATH
+        conn = sqlite3.connect(PAPER_INFO_DB_PATH)
+        n = conn.execute("SELECT COUNT(*) FROM paper_info").fetchone()[0]
+        m = conn.execute(
+            "SELECT COUNT(DISTINCT method_name) FROM paper_info WHERE method_name != ''"
+        ).fetchone()[0]
+        conn.close()
+        if n > 0:
+            lines.append(
+                f"- paper_info SQLite: {n} papers, {m} distinct methods. "
+                f"Use generate_dse_method_matrix for method comparisons, "
+                f"benchmark tables, and listing methods by algorithm/objective."
+            )
+    except Exception:
+        pass
+    try:
+        from rag_pipeline.ingest import create_qdrant_client
+        from utils.config import get_settings
+        s = get_settings()
+        client = create_qdrant_client(s)
+        info = client.get_collection(s.qdrant.collection)
+        lines.append(
+            f"- Qdrant: {info.points_count} chunks across all papers. "
+            f"Use search_dse_papers for concepts, definitions, and broad searches. "
+            f"Use ask_paper when the user asks about one specific paper by name (e.g. "
+            f"\"what does GRL-DSE say about X?\"). Use summarize_paper for a paper's "
+            f"TL;DR. Use find_related_papers to discover similar work."
+        )
+    except Exception:
+        pass
+    try:
+        from utils.memory import MEMORY_DB_PATH
+        conn = sqlite3.connect(MEMORY_DB_PATH)
+        n = conn.execute("SELECT COUNT(*) FROM long_term_memories").fetchone()[0]
+        conn.close()
+        if n > 0:
+            lines.append(
+                f"- Memory: {n} stored facts. "
+                f"Use search_memory for user preferences and past conclusions."
+            )
+    except Exception:
+        pass
+    return "\n".join(lines) if lines else ""
+
+
 def build_planner_prompt(
     question: str,
     conversation_context: str = "",
     long_term_context: str = "",
 ) -> str:
-    return f"""Recent conversation context:
+    system_status = _get_system_status()
+    status_block = (
+        f"## System status (use this to pick tools)\n{system_status}\n"
+        if system_status else ""
+    )
+    return f"""{status_block}Recent conversation context:
 {conversation_context or "None"}
 
 Relevant long-term memory:

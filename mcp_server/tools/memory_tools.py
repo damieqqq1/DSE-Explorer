@@ -25,24 +25,25 @@ def _store() -> MemoryStore:
 
 
 def search_memory(
-    query: str,
+    query: str = "",
     session_id: str = "default",
-    kind: str = "",
+    kind: str | None = None,
     limit: int = 10,
 ) -> dict[str, Any]:
     """Search conversation history and long-term memories.
 
     Args:
-        query: Search query to match against memory content.
+        query: Search query. Empty string returns recent memories unfiltered.
         session_id: Session to search, or "all" for all sessions.
-        kind: Filter by memory kind: conclusion, user_focus, paper_summary, or empty for all.
+        kind: Filter by kind: conclusion, user_focus, paper_summary. None means all.
         limit: Maximum results, capped at 30.
 
     Returns:
         A dictionary with ``query``, ``results`` list, and ``result_count``.
     """
     safe_limit = min(max(1, limit), 30)
-    search_text = query.strip()
+    search_text = (query or "").strip()
+    safe_kind = (kind or "").strip()
     store = _store()
 
     # Search long-term memories
@@ -52,9 +53,9 @@ def search_memory(
         if session_id != "all":
             where_parts.append("session_id = ?")
             params.append(session_id)
-        if kind:
+        if safe_kind:
             where_parts.append("kind = ?")
-            params.append(kind)
+            params.append(safe_kind)
 
         rows = conn.execute(
             f"SELECT session_id, kind, content, source, importance, created_at "
@@ -127,7 +128,7 @@ def search_memory(
 
 def save_memory(
     content: str,
-    kind: str = "conclusion",
+    kind: str | None = None,
     session_id: str = "default",
     source: str = "agent",
     importance: float = 0.7,
@@ -144,8 +145,9 @@ def save_memory(
     Returns:
         A dictionary with success status.
     """
-    if kind not in ("conclusion", "user_focus", "paper_summary"):
-        return {"success": False, "error": f"Invalid kind: {kind}"}
+    safe_kind = (kind or "conclusion").strip()
+    if safe_kind not in ("conclusion", "user_focus", "paper_summary"):
+        return {"success": False, "error": f"Invalid kind: {safe_kind}"}
 
     content = content.strip()[:1200]
     if not content:
@@ -154,14 +156,14 @@ def save_memory(
     store = _store()
     store.save_long_term_memory(
         session_id=session_id,
-        kind=kind,
+        kind=safe_kind,
         content=content,
         source=source[:300],
         importance=max(0.0, min(1.0, importance)),
     )
     return {
         "success": True,
-        "message": f"Saved {kind} memory to session {session_id}.",
+        "message": f"Saved {safe_kind} memory to session {session_id}.",
         "content_preview": content[:200],
     }
 

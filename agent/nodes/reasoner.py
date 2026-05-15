@@ -138,15 +138,62 @@ def build_follow_up_steps(state: AgentState, raw_steps: Any) -> list[PlanStep]:
     return steps
 
 
+# Tools whose output is a block of structured content (table, template, plot), not chunk-text.
+_STRUCTURED_TOOLS = {
+    "generate_dse_method_matrix",
+    "compute_dse_metrics",
+    "generate_pareto_front",
+    "design_experiment_template",
+    "get_rag_corpus_stats",
+    "get_memory_stats",
+    "get_recent_conversations",
+}
+
+# Metadata keys that don't carry answer content — skip them for brevity.
+_SKIP_KEYS = {"success", "query", "url", "paper_path", "file_name", "question"}
+# Keys whose value is a content block to include at full length.
+_CONTENT_KEYS = {"matrix", "content", "template", "stdout", "message", "answer"}
+
+
 def compress_evidence(state: AgentState, max_results: int = 10, max_chars: int = 900) -> str:
+    blocks: list[str] = []
+
+    # 1. Collect structured evidence first — show it in full.
+    for item in state.get("evidence", []):
+        tool = str(item.get("tool", ""))
+        if tool not in _STRUCTURED_TOOLS:
+            continue
+        for result in item.get("results", []):
+            if not isinstance(result, dict):
+                continue
+            parts: list[str] = [f"- Structured output from {tool} (step {item['step_id']}):"]
+            for key, value in sorted(result.items()):
+                if key in _SKIP_KEYS:
+                    continue
+                if isinstance(value, str) and value.strip():
+                    cap = 5000 if key in _CONTENT_KEYS else 500
+                    parts.append(f"  [{key}]:\n{value[:cap]}")
+                elif isinstance(value, dict):
+                    parts.append(f"  [{key}]:\n{json.dumps(value, indent=2, ensure_ascii=False)[:3000]}")
+                elif isinstance(value, list):
+                    parts.append(f"  [{key}]:\n{json.dumps(value, indent=2, ensure_ascii=False)[:3000]}")
+                elif value is not None:
+                    parts.append(f"  [{key}]: {value}")
+            if len(parts) > 1:
+                blocks.append("\n".join(parts))
+
+    # 2. Collect chunk-based evidence (search_dse_papers, ask_paper, fetch_web_page, ...).
     rows: list[tuple[float, str, int | str, str, str]] = []
     seen: set[tuple[str, int | str, str]] = set()
     for item in state.get("evidence", []):
+        tool = str(item.get("tool", ""))
+        if tool in _STRUCTURED_TOOLS:
+            continue
         for result in item.get("results", []):
             metadata = result.get("metadata", {})
             source = str(metadata.get("relative_path") or metadata.get("file_name") or "unknown")
             page = metadata.get("page", "?")
-            text = " ".join(str(result.get("text", "")).split())
+            text = " ".join(str(result.get("text") or result.get("content", "")).split())
             key = (source, page, text[:160])
             if key in seen:
                 continue
@@ -154,7 +201,6 @@ def compress_evidence(state: AgentState, max_results: int = 10, max_chars: int =
             rows.append((float(result.get("score", 0.0)), source, page, item["task"], text))
 
     rows.sort(key=lambda row: row[0], reverse=True)
-    blocks: list[str] = []
     for score, source, page, task, text in rows[:max_results]:
         blocks.append(
             f"- Evidence label: [{source}, page {page}]\n"
