@@ -9,6 +9,8 @@ class PlanStep(TypedDict):
     id: int
     task: str
     query: str
+    tool: NotRequired[str]
+    tool_args: NotRequired[dict[str, Any]]
     rewritten_query: NotRequired[str]
     query_variants: NotRequired[list[str]]
 
@@ -17,6 +19,7 @@ class EvidenceItem(TypedDict):
     step_id: int
     task: str
     query: str
+    tool: NotRequired[str]
     results: list[dict[str, Any]]
 
 
@@ -30,6 +33,7 @@ class AgentState(TypedDict, total=False):
     question: str
     conversation_context: str
     long_term_context: str
+    mode: str
     plan: list[PlanStep]
     executed_step_ids: list[int]
     evidence: list[EvidenceItem]

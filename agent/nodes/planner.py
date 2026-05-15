@@ -15,7 +15,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def planner_node(state: AgentState) -> dict[str, list[PlanStep]]:
+def planner_node(state: AgentState) -> dict[str, Any]:
     question = state["question"]
     prompt = build_planner_prompt(
         question,
@@ -25,17 +25,22 @@ def planner_node(state: AgentState) -> dict[str, list[PlanStep]]:
 
     try:
         raw = invoke_deepseek(prompt, system_prompt=PLANNER_SYSTEM_PROMPT)
-        plan = parse_plan(raw)
+        mode, plan = parse_plan(raw)
     except Exception:
         logger.exception("Planner failed; falling back to a single retrieval plan.")
+        mode = "researcher"
         plan = fallback_plan(question)
 
-    logger.info("Planner produced %s steps", len(plan))
-    return {"plan": plan}
+    logger.info("Planner mode=%s, %s steps", mode, len(plan))
+    return {"mode": mode, "plan": plan}
 
 
-def parse_plan(raw: str) -> list[PlanStep]:
+def parse_plan(raw: str) -> tuple[str, list[PlanStep]]:
     data = json.loads(extract_json(raw))
+    mode = str(data.get("mode", "researcher")).lower()
+    if mode not in ("researcher", "developer"):
+        mode = "researcher"
+
     steps = data.get("steps", [])
     if not isinstance(steps, list):
         raise ValueError("Planner JSON must contain a list field named steps.")
@@ -46,12 +51,20 @@ def parse_plan(raw: str) -> list[PlanStep]:
             continue
         task = str(item.get("task", "")).strip()
         query = str(item.get("query", "")).strip()
-        if task and query:
-            plan.append({"id": int(item.get("id") or index), "task": task, "query": query})
+        if not task or not query:
+            continue
+        step: PlanStep = {"id": int(item.get("id") or index), "task": task, "query": query}
+        tool = str(item.get("tool", "")).strip()
+        if tool:
+            step["tool"] = tool
+        tool_args = item.get("tool_args")
+        if isinstance(tool_args, dict):
+            step["tool_args"] = tool_args
+        plan.append(step)
 
     if not plan:
         raise ValueError("Planner produced no usable steps.")
-    return plan
+    return mode, plan
 
 
 def extract_json(raw: str) -> str:
@@ -72,6 +85,7 @@ def fallback_plan(question: str) -> list[PlanStep]:
             "id": 1,
             "task": "Retrieve the most relevant local paper chunks for the user question.",
             "query": query,
+            "tool": "search_dse_papers",
         }
     ]
 

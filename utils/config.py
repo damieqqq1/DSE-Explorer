@@ -98,6 +98,7 @@ class AppSettings:
     env_path: Path
     paper_root: Path
     log_level: str
+    github_token: str
     llm: LLMSettings
     qdrant: QdrantSettings
     web_search: WebSearchSettings
@@ -117,6 +118,7 @@ class AppSettings:
             "env_path": str(self.env_path),
             "paper_root": str(self.paper_root),
             "log_level": self.log_level,
+            "github_token": _mask_secret(self.github_token),
             "llm": {
                 "model_id": self.llm.model_id,
                 "base_url": self.llm.base_url,
@@ -160,6 +162,7 @@ def get_settings() -> AppSettings:
         env_path=ENV_PATH,
         paper_root=paper_root,
         log_level=_get_str("LOG_LEVEL", "INFO").upper(),
+        github_token=_get_str("GITHUB_PERSONAL_ACCESS_TOKEN") or _get_str("GITHUB_TOKEN"),
         llm=LLMSettings(
             model_id=_get_str("LLM_MODEL_ID", "deepseek-chat"),
             api_key=llm_api_key,

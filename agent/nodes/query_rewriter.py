@@ -20,6 +20,10 @@ MAX_QUERY_VARIANTS = 4
 def query_rewriter_node(state: AgentState) -> dict[str, list[PlanStep]]:
     rewritten_plan: list[PlanStep] = []
     for step in state.get("plan", []):
+        # Only rewrite search steps; pass developer / other tool steps through unchanged.
+        if step.get("tool", "search_dse_papers") != "search_dse_papers":
+            rewritten_plan.append(step)
+            continue
         if step.get("query_variants"):
             rewritten_plan.append(step)
             continue
@@ -29,7 +33,7 @@ def query_rewriter_node(state: AgentState) -> dict[str, list[PlanStep]]:
             logger.exception("Query rewrite failed for step %s; using original query.", step["id"])
             rewritten_plan.append(with_fallback_rewrite(step))
 
-    logger.info("Query rewriter prepared %s retrieval steps", len(rewritten_plan))
+    logger.info("Query rewriter prepared %s steps", len(rewritten_plan))
     return {"plan": rewritten_plan}
 
 

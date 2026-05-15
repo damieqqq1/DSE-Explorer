@@ -7,8 +7,16 @@ import sys
 
 from fastmcp import FastMCP
 
+from mcp_server.tools.code_sandbox import register_code_sandbox_tools
+from mcp_server.tools.memory_tools import register_memory_tools
+from mcp_server.tools.dse_metrics import register_dse_metrics_tools
+from mcp_server.tools.experiment_designer import register_experiment_designer_tools
 from mcp_server.tools.method_matrix import register_method_matrix_tools
+from mcp_server.tools.paper_graph import register_paper_graph_tools
+from mcp_server.tools.paper_summary import register_paper_summary_tools
+from mcp_server.tools.paper_qa import register_paper_qa_tools
 from mcp_server.tools.qdrant_rag import register_qdrant_rag_tools
+from mcp_server.tools.web_fetch import register_web_fetch_tools
 from mcp_server.tools.web_search import register_web_search_tools
 from utils.config import get_settings
 from utils.logger import configure_logging
@@ -27,9 +35,17 @@ def create_mcp_server() -> FastMCP:
             "agentic design-space-exploration research workflows."
         ),
     )
+    register_memory_tools(mcp)
     register_qdrant_rag_tools(mcp)
     register_method_matrix_tools(mcp)
     register_web_search_tools(mcp)
+    register_code_sandbox_tools(mcp)
+    register_paper_summary_tools(mcp)
+    register_paper_graph_tools(mcp)
+    register_paper_qa_tools(mcp)
+    register_dse_metrics_tools(mcp)
+    register_experiment_designer_tools(mcp)
+    register_web_fetch_tools(mcp)
     return mcp
 
 
