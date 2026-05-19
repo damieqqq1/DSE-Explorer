@@ -192,13 +192,17 @@ def build_planner_prompt(
     conversation_context: str = "",
     long_term_context: str = "",
     node_context: str = "",
+    tool_context: str = "",
 ) -> str:
     system_status = _get_system_status()
     status_block = (
         f"## System status (use this to pick tools)\n{system_status}\n"
         if system_status else ""
     )
-    return f"""{status_block}Routed planner context:
+    return f"""{status_block}Relevant MCP tools:
+{tool_context or "Use the static fallback tool list in the system prompt."}
+
+Routed planner context:
 {node_context or "None"}
 
 Recent conversation context:

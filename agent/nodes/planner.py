@@ -10,6 +10,7 @@ from agent.prompts import PLANNER_SYSTEM_PROMPT, build_planner_prompt
 from agent.state import AgentState, PlanStep
 from utils.deepseek_llm import invoke_deepseek
 from utils.logger import get_logger
+from utils.tool_registry import get_relevant_tool_context
 
 
 logger = get_logger(__name__)
@@ -17,11 +18,13 @@ logger = get_logger(__name__)
 
 def planner_node(state: AgentState) -> dict[str, Any]:
     question = state["question"]
+    tool_context = get_relevant_tool_context(question)
     prompt = build_planner_prompt(
         question,
         conversation_context=state.get("conversation_context", ""),
         long_term_context=state.get("long_term_context", ""),
         node_context=state.get("planner_context", ""),
+        tool_context=tool_context,
     )
 
     try:

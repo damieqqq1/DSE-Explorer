@@ -63,6 +63,11 @@ def call_fs_tools_batch(requests: list[tuple[str, dict[str, Any]]]) -> list[dict
     return _get_fs_session().call_batch(requests)
 
 
+def list_fs_tools() -> list[Any]:
+    """Return tools exposed by the filesystem MCP server."""
+    return _get_fs_session().list_tools()
+
+
 # ---------------------------------------------------------------------------
 # Convenience wrappers
 # ---------------------------------------------------------------------------

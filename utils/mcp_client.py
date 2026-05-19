@@ -125,6 +125,14 @@ class _PersistentSessionManager:
             results.append(_decode_tool_result(future.result(timeout=120)))
         return results
 
+    def list_tools(self) -> list[Any]:
+        self._ensure_running()
+        assert self._loop is not None
+        assert self._session is not None
+        future = asyncio.run_coroutine_threadsafe(self._session.list_tools(), self._loop)
+        result = future.result(timeout=60)
+        return list(getattr(result, "tools", []) or [])
+
 
 # ---------------------------------------------------------------------------
 # Module-level singletons
@@ -161,6 +169,11 @@ def call_mcp_tool(tool_name: str, arguments: dict[str, Any] | None = None) -> di
 def call_mcp_tools_batch(requests: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
     """Call multiple MCP tools in one session."""
     return _get_dse_session().call_batch(requests)
+
+
+def list_mcp_tools() -> list[Any]:
+    """Return tools exposed by the local DSE MCP server."""
+    return _get_dse_session().list_tools()
 
 
 # Keep the old run_async for backward compat (used by fs client and any other callers).

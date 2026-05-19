@@ -78,6 +78,11 @@ def call_github_tool(tool_name: str, arguments: dict[str, Any] | None = None) ->
     return _get_session().call(tool_name, arguments or {})
 
 
+def list_github_tools() -> list[Any]:
+    """Return tools exposed by the GitHub MCP server."""
+    return _get_session().list_tools()
+
+
 # ---------------------------------------------------------------------------
 # Convenience wrappers — read-only operations
 # ---------------------------------------------------------------------------

@@ -50,6 +50,11 @@ def call_git_tool(tool_name: str, arguments: dict[str, Any] | None = None) -> di
     return _get_session().call(tool_name, arguments or {})
 
 
+def list_git_tools() -> list[Any]:
+    """Return tools exposed by the git MCP server."""
+    return _get_session().list_tools()
+
+
 # ---------------------------------------------------------------------------
 # Convenience wrappers — pass repo_path for all tools that accept it
 # ---------------------------------------------------------------------------
@@ -102,4 +107,3 @@ def git_create_branch(branch_name: str, base_branch: str = "", repo_path: str = 
     if base_branch:
         args["base_branch"] = base_branch
     return call_git_tool("git_create_branch", args)
-

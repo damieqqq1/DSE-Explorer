@@ -8,6 +8,14 @@ from utils.fs_mcp_client import call_fs_tool
 from utils.git_mcp_client import GIT_TOOLS, call_git_tool
 from utils.github_mcp_client import GITHUB_TOOLS, call_github_tool
 from utils.mcp_client import call_mcp_tool, call_mcp_tools_batch
+from utils.tool_registry import (
+    SERVER_DSE,
+    SERVER_FS,
+    SERVER_GIT,
+    SERVER_GITHUB,
+    get_tool_spec,
+    missing_required_args,
+)
 
 logger = get_logger(__name__)
 
@@ -31,6 +39,32 @@ def _merge_search_results(results: list[dict]) -> list[dict]:
     for r in results:
         merged.extend(r.get("results", []))
     return merged
+
+
+def resolve_tool_backend(tool: str) -> str:
+    """Resolve a tool name to an MCP server, using dynamic registry first."""
+    spec = get_tool_spec(tool)
+    if spec is not None:
+        return spec.server
+
+    if tool in _FS_TOOLS:
+        return SERVER_FS
+    if tool in GIT_TOOLS:
+        return SERVER_GIT
+    if tool in GITHUB_TOOLS:
+        return SERVER_GITHUB
+    return SERVER_DSE
+
+
+# Tools that accept a free-text 'query' as their primary input.
+_QUERY_TOOLS = {"search_dse_papers", "search_research_web", "ask_paper", "design_experiment_template"}
+
+# Tools served by the filesystem MCP server instead of the DSE server.
+_FS_TOOLS = {
+    "read_file", "write_file", "edit_file", "create_directory",
+    "list_directory", "directory_tree", "move_file", "search_files",
+    "get_file_info", "read_multiple_files", "list_allowed_directories",
+}
 
 
 def executor_node(state: AgentState) -> dict:
@@ -61,16 +95,6 @@ def executor_node(state: AgentState) -> dict:
             })
             executed_step_ids.append(step["id"])
 
-    # Tools that accept a free-text 'query' as their primary input.
-    _QUERY_TOOLS = {"search_dse_papers", "search_research_web", "ask_paper", "design_experiment_template"}
-
-    # Tools served by the filesystem MCP server instead of the DSE server.
-    _FS_TOOLS = {
-        "read_file", "write_file", "edit_file", "create_directory",
-        "list_directory", "directory_tree", "move_file", "search_files",
-        "get_file_info", "read_multiple_files", "list_allowed_directories",
-    }
-
     # Route other steps to their specific tools
     for step in other_steps:
         tool = step.get("tool", _SEARCH_TOOL)
@@ -85,27 +109,32 @@ def executor_node(state: AgentState) -> dict:
         if tool in _QUERY_TOOLS and "query" not in tool_args:
             tool_args["query"] = step["query"]
 
-        # Route to the correct MCP server.
-        is_filesystem = tool in _FS_TOOLS
-        is_git = tool in GIT_TOOLS
-        is_github = tool in GITHUB_TOOLS
+        missing_args = missing_required_args(tool, tool_args)
+        if missing_args:
+            logger.warning("Tool %s missing required args: %s", tool, ", ".join(missing_args))
+            evidence.append({
+                "step_id": step["id"],
+                "task": step["task"],
+                "query": step["query"],
+                "tool": tool,
+                "results": [{
+                    "error": f"Tool {tool} missing required args: {', '.join(missing_args)}",
+                    "tool_args": tool_args,
+                }],
+            })
+            executed_step_ids.append(step["id"])
+            continue
 
-        backend = "dse"
-        if is_filesystem:
-            backend = "fs"
-        elif is_git:
-            backend = "git"
-        elif is_github:
-            backend = "github"
+        backend = resolve_tool_backend(tool)
 
         logger.info("Calling %s [%s] for step %s: %s",
                      tool, backend, step["id"], step["task"])
         try:
-            if is_filesystem:
+            if backend == SERVER_FS:
                 result = call_fs_tool(tool, tool_args)
-            elif is_git:
+            elif backend == SERVER_GIT:
                 result = call_git_tool(tool, tool_args)
-            elif is_github:
+            elif backend == SERVER_GITHUB:
                 result = call_github_tool(tool, tool_args)
             else:
                 result = call_mcp_tool(tool, tool_args)
