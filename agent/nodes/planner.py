@@ -21,6 +21,7 @@ def planner_node(state: AgentState) -> dict[str, Any]:
         question,
         conversation_context=state.get("conversation_context", ""),
         long_term_context=state.get("long_term_context", ""),
+        node_context=state.get("planner_context", ""),
     )
 
     try:

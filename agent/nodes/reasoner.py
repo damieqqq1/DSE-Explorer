@@ -40,6 +40,7 @@ def reasoner_node(state: AgentState) -> dict[str, Any]:
             compressed_context,
             conversation_context=state.get("conversation_context", ""),
             long_term_context=state.get("long_term_context", ""),
+            node_context=state.get("reasoner_context", ""),
         )
     except Exception:
         logger.exception("Reasoner assessment failed; synthesizing with current evidence.")
@@ -84,6 +85,7 @@ def synthesizer_node(state: AgentState) -> dict[str, Any]:
         evidence_text,
         conversation_context=state.get("conversation_context", ""),
         long_term_context=state.get("long_term_context", ""),
+        node_context=state.get("synthesis_context", ""),
     )
     answer = invoke_deepseek(prompt, system_prompt=SYNTHESIZER_SYSTEM_PROMPT)
     sources = collect_sources(state)
@@ -96,6 +98,7 @@ def assess_evidence(
     compressed_context: str,
     conversation_context: str = "",
     long_term_context: str = "",
+    node_context: str = "",
 ) -> dict[str, Any]:
     raw = invoke_deepseek(
         build_reasoner_prompt(
@@ -103,6 +106,7 @@ def assess_evidence(
             compressed_context,
             conversation_context=conversation_context,
             long_term_context=long_term_context,
+            node_context=node_context,
         ),
         system_prompt=REASONER_SYSTEM_PROMPT,
     )

@@ -158,6 +158,8 @@ Memory flags:
 - `--memory-turns`: number of recent turns injected into context.
 - `--no-memory`: disable conversation and long-term memory.
 - `--show-memory`: print injected memory context.
+- `--show-context`: print scored context candidates and node-routed context.
+- `--no-context-embeddings`: use lexical context relevance only.
 
 ## Direct LLM Prompt
 

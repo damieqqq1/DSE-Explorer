@@ -45,6 +45,11 @@ def run_agent(
     max_iterations: int = 2,
     conversation_context: str = "",
     long_term_context: str = "",
+    planner_context: str = "",
+    rewriter_context: str = "",
+    reasoner_context: str = "",
+    synthesis_context: str = "",
+    context_trace: list[dict] | None = None,
 ) -> AgentState:
     app = build_agent_graph()
     return app.invoke(
@@ -53,5 +58,10 @@ def run_agent(
             "max_iterations": max_iterations,
             "conversation_context": conversation_context,
             "long_term_context": long_term_context,
+            "planner_context": planner_context,
+            "rewriter_context": rewriter_context,
+            "reasoner_context": reasoner_context,
+            "synthesis_context": synthesis_context,
+            "context_trace": context_trace or [],
         }
     )

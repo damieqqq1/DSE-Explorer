@@ -33,6 +33,11 @@ class AgentState(TypedDict, total=False):
     question: str
     conversation_context: str
     long_term_context: str
+    planner_context: str
+    rewriter_context: str
+    reasoner_context: str
+    synthesis_context: str
+    context_trace: list[dict[str, Any]]
     mode: str
     plan: list[PlanStep]
     executed_step_ids: list[int]

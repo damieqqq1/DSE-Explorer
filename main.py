@@ -10,6 +10,7 @@ from pathlib import Path
 warnings.filterwarnings("ignore", message=r"The default value of `allowed_objects`.*")
 
 from utils.config import get_settings
+from utils.context_engine import build_context_bundle
 from utils.deepseek_llm import invoke_deepseek
 from utils.logger import configure_logging, get_logger
 from utils.memory import MemoryStore
@@ -80,6 +81,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--show-memory",
         action="store_true",
         help="Show injected conversation and long-term memory context.",
+    )
+    parser.add_argument(
+        "--show-context",
+        action="store_true",
+        help="Show selected context candidates, scores, and node-routed context.",
+    )
+    parser.add_argument(
+        "--no-context-embeddings",
+        action="store_true",
+        help="Use lexical context relevance only instead of embedding similarity.",
     )
     parser.add_argument(
         "--extract-paper-info",
@@ -160,18 +171,32 @@ def main() -> None:
     if args.ask:
         logger.info("Running paper-grounded agent.")
         memory_store = None if args.no_memory else MemoryStore()
-        memory_context = None
+        context_bundle = None
         if memory_store is not None:
-            memory_context = memory_store.build_context(
+            context_bundle = build_context_bundle(
+                memory_store,
                 session_id=args.session,
                 query=args.ask,
                 recent_turns=args.memory_turns,
+                use_embeddings=not args.no_context_embeddings,
             )
             if args.show_memory:
                 print("Conversation Memory:")
-                print(memory_context.conversation_context or "(empty)")
+                print(context_bundle.conversation_context or "(empty)")
                 print("\nLong-Term Memory:")
-                print(memory_context.long_term_context or "(empty)")
+                print(context_bundle.long_term_context or "(empty)")
+                print()
+            if args.show_context:
+                print("Context Trace:")
+                print(json.dumps(context_bundle.context_trace, indent=2, ensure_ascii=False))
+                print("\nPlanner Context:")
+                print(context_bundle.planner_context or "(empty)")
+                print("\nQuery Rewriter Context:")
+                print(context_bundle.rewriter_context or "(empty)")
+                print("\nReasoner Context:")
+                print(context_bundle.reasoner_context or "(empty)")
+                print("\nSynthesis Context:")
+                print(context_bundle.synthesis_context or "(empty)")
                 print()
 
         with warnings.catch_warnings():
@@ -181,8 +206,13 @@ def main() -> None:
         result = run_agent(
             args.ask,
             max_iterations=args.max_iterations,
-            conversation_context=memory_context.conversation_context if memory_context else "",
-            long_term_context=memory_context.long_term_context if memory_context else "",
+            conversation_context=context_bundle.conversation_context if context_bundle else "",
+            long_term_context=context_bundle.long_term_context if context_bundle else "",
+            planner_context=context_bundle.planner_context if context_bundle else "",
+            rewriter_context=context_bundle.rewriter_context if context_bundle else "",
+            reasoner_context=context_bundle.reasoner_context if context_bundle else "",
+            synthesis_context=context_bundle.synthesis_context if context_bundle else "",
+            context_trace=context_bundle.context_trace if context_bundle else [],
         )
         print(result.get("final_answer", ""))
 
@@ -211,6 +241,8 @@ def main() -> None:
             print(result.get("conversation_context", ""))
             print("\nInjected Long-Term Memory:")
             print(result.get("long_term_context", ""))
+            print("\nContext Trace:")
+            print(json.dumps(result.get("context_trace", []), indent=2, ensure_ascii=False))
             print("\nReasoner:")
             print(result.get("reasoner_note", ""))
             print("\nCompressed Context:")

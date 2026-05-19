@@ -191,13 +191,17 @@ def build_planner_prompt(
     question: str,
     conversation_context: str = "",
     long_term_context: str = "",
+    node_context: str = "",
 ) -> str:
     system_status = _get_system_status()
     status_block = (
         f"## System status (use this to pick tools)\n{system_status}\n"
         if system_status else ""
     )
-    return f"""{status_block}Recent conversation context:
+    return f"""{status_block}Routed planner context:
+{node_context or "None"}
+
+Recent conversation context:
 {conversation_context or "None"}
 
 Relevant long-term memory:
@@ -214,9 +218,13 @@ def build_synthesis_prompt(
     evidence_text: str,
     conversation_context: str = "",
     long_term_context: str = "",
+    node_context: str = "",
 ) -> str:
     return f"""User question:
 {question}
+
+Routed synthesis context:
+{node_context or "None"}
 
 Recent conversation context:
 {conversation_context or "None"}
@@ -235,9 +243,13 @@ def build_reasoner_prompt(
     compressed_context: str,
     conversation_context: str = "",
     long_term_context: str = "",
+    node_context: str = "",
 ) -> str:
     return f"""User question:
 {question}
+
+Routed reasoning context:
+{node_context or "None"}
 
 Recent conversation context:
 {conversation_context or "None"}
@@ -257,8 +269,12 @@ def build_query_rewriter_prompt(
     query: str,
     conversation_context: str = "",
     long_term_context: str = "",
+    node_context: str = "",
 ) -> str:
-    return f"""Recent conversation context:
+    return f"""Routed query rewrite context:
+{node_context or "None"}
+
+Recent conversation context:
 {conversation_context or "None"}
 
 Relevant long-term memory:

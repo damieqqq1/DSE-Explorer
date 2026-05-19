@@ -44,6 +44,7 @@ def rewrite_step(state: AgentState, step: PlanStep) -> PlanStep:
         step["query"],
         conversation_context=state.get("conversation_context", ""),
         long_term_context=state.get("long_term_context", ""),
+        node_context=state.get("rewriter_context", ""),
     )
     raw = invoke_deepseek(prompt, system_prompt=QUERY_REWRITER_SYSTEM_PROMPT)
     payload = json.loads(extract_json(raw))
